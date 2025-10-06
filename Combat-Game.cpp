@@ -95,7 +95,7 @@ int main()
         std::cout << "Press enter to process enemy move!\n";
         std::cin.clear();
         std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-        getchar(); //Wait for any user input to continue
+        std::ignore = getchar(); //Wait for any user input to continue
 
         enemy.hasDodged = false;
         enemy.hasHealed = false;
@@ -103,6 +103,12 @@ int main()
 
         moveNumber = enemyMoveChoice(enemy);
         processMove(moveNumber, enemy, player);
+
+        if (enemy.hasHealed) //Allow a second turn if the enemy has healed
+        {
+            moveNumber = enemyMoveChoice(enemy);
+            processMove(moveNumber, enemy, player);
+        }
 
         if (enemy.health <= 0)
         {
@@ -337,7 +343,7 @@ int enemyMoveChoice(entity &enemy)
     {
         enemyChoice = 3; //Set enemy to recharge
     }
-    else if (enemy.health <= 20)
+    else if (enemy.health <= 20 && !enemy.hasHealed)
     {
         //Rnadomly decide to heal or dodge on low health
         enemyRoll = rand() % 2;
