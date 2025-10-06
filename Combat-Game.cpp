@@ -14,6 +14,17 @@ const int energyChargeRate = 4; //Amount of energy regained each turn
 
 const int barLength = 10;
 
+const int attackHitChance = 80;
+const int specialAttackHitChance = 50;
+const int dodgeChanceModifier = 30;
+const int healChanceModifier = 20;
+
+const int attackMinDamage = 1;
+const int attackMaxDamage = 11; //10 + 1 for rand function range to process correctly
+
+const int specialAttackMinDamage = 5;
+const int specialAttackMaxDamage = 21; //20 + 1 for rand function range to process correctly
+
 struct entity
 {
     std::string name = "";
@@ -27,14 +38,31 @@ struct entity
 entity player;
 entity enemy;
 
+enum moveNumbers
+{
+    Attack = 1,
+    SpecialAttack,
+    Recharge,
+    Dodge,
+    Heal,
+};
+
+moveNumbers moveStates;
+
 int moveNumber;
 std::string playerChoice = "0";
 
+int enemyChoice;
+int enemyRoll;
+
+//Initialise functions
 void printStats(entity entity);
-
 int playerInput();
-
-void processMove(int moveNumber, entity *moveUser, entity *target);
+void processMove(int moveNumber, entity &moveUser, entity &target);
+void performAttackMove(int chanceToHit, entity& target, int minDamage, int maxDamage);
+int enemyMoveChoice(entity &enemy);
+void restoreEnergy(entity &entityToRestore);
+void clearScreen();
 
 int main()
 {
@@ -43,25 +71,57 @@ int main()
 
     for (;;) //Initialise the loop of the turn
     {
-        //Reset states for turn
+        //Reset states for player turn
         player.hasDodged = false;
         player.hasHealed = false;
         player.hasRecharged = false;
-        enemy.hasDodged = false;
-        enemy.hasHealed = false;
-        enemy.hasRecharged = false;
-
         printStats(player);
         printStats(enemy);
-        int moveNumber = playerInput();
-        processMove(moveNumber, &player, &enemy);
+
+        moveNumber = playerInput();
+        processMove(moveNumber, player, enemy);
 
         if (player.hasHealed) //Allow a second turn if the player has healed
         {
             printStats(player);
             printStats(enemy);
             int moveNumber = playerInput();
-            processMove(moveNumber, &player, &enemy);
+            processMove(moveNumber, player, enemy);
+        }
+
+        clearScreen();
+        printStats(player);
+        printStats(enemy);
+        std::cout << "Press enter to process enemy move!\n";
+        std::cin.clear();
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        getchar(); //Wait for any user input to continue
+
+        enemy.hasDodged = false;
+        enemy.hasHealed = false;
+        enemy.hasRecharged = false;
+
+        moveNumber = enemyMoveChoice(enemy);
+        processMove(moveNumber, enemy, player);
+
+        if (enemy.health <= 0)
+        {
+            std::cout << "You have defeated the enemy, you win!";
+
+            break;
+        }
+        else if(player.health <= 0)
+        {
+            std::cout << "You have been defeated by the enemy, you lose!";
+
+            break;
+        }
+        else
+        {
+            //Restore energy per round
+            restoreEnergy(player);
+            restoreEnergy(enemy);
+            clearScreen();
         }
     }
 
@@ -200,84 +260,145 @@ int playerInput()
     return std::stoi(playerChoice);
 }
 
-void processMove(int moveNumber, entity *moveUser, entity *target) 
+void processMove(int moveNumber, entity &moveUser, entity &target) 
 //We're passing the entities as pointers so that we can update their values without needing to return the structs
 {
     switch (moveNumber)
     {
-        case 1: //Basic Attack
+        case Attack:
         {
-            (*moveUser).energy -= 5;
+            moveUser.energy -= 5;
 
-            int chanceToHit = 80;
+            int chanceToHit = attackHitChance;
 
-            int hitAttempt = rand() % 101;
-
-            if ((*target).hasHealed)
-            {
-                chanceToHit += 20;
-            }
-
-            if ((*target).hasDodged)
-            {
-                chanceToHit -= 30;
-            }
-
-            if (hitAttempt <= hitAttempt)
-            {
-                int damage = rand() % 11 + 1;
-                (*target).health -= damage;
-            }
+            performAttackMove(chanceToHit, target, attackMinDamage, attackMaxDamage);
 
             break;
         }
-        case 2: //Special Attack
+        case SpecialAttack:
         {
-            (*moveUser).energy -= 10;
+            moveUser.energy -= 10;
 
-            int chanceToHit = 50;
+            int chanceToHit = specialAttackHitChance;
 
-            int hitAttempt = rand() % 101;
-
-            if ((*target).hasHealed)
-            {
-                chanceToHit += 20;
-            }
-
-            if ((*target).hasDodged)
-            {
-                chanceToHit -= 30;
-            }
-
-            if (hitAttempt <= hitAttempt)
-            {
-                int damage = rand() % 21 + 5;
-                (*target).health -= damage;
-            }
+            performAttackMove(chanceToHit, target, specialAttackMinDamage, specialAttackMaxDamage);
 
             break;
         }
-        case 3: //Recharge
+        case Recharge:
         {
-            (*moveUser).hasRecharged = true;
+            moveUser.hasRecharged = true;
 
             break;
         }
-        case 4: //Dodge
+        case Dodge:
         {
-            (*moveUser).hasDodged = true;
+            moveUser.hasDodged = true;
 
             break;
         }
-        case 5: //Heal
+        case Heal:
         {
-            (*moveUser).hasHealed = true;
+            moveUser.hasHealed = true;
 
-            (*moveUser).energy -= 10;
-            (*moveUser).health += (*moveUser).energy / 2;
-            (*moveUser).energy /= 2;
+            moveUser.energy -= 10;
+            moveUser.health += moveUser.energy / 2;
+            moveUser.energy /= 2;
 
             break;
         }
     }
+}
+
+void performAttackMove(int chanceToHit, entity &target, int minDamage, int maxDamage)
+{
+    int hitAttempt = rand() % 101;
+
+    if (target.hasHealed)
+    {
+        chanceToHit += healChanceModifier;
+    }
+
+    if (target.hasDodged)
+    {
+        chanceToHit -= dodgeChanceModifier;
+    }
+
+    if (hitAttempt <= hitAttempt)
+    {
+        int damage = rand() % (maxDamage - minDamage) + minDamage;
+        target.health -= damage;
+    }
+}
+
+int enemyMoveChoice(entity &enemy)
+{
+    if (enemy.energy <= 10)
+    {
+        enemyChoice = 3; //Set enemy to recharge
+    }
+    else if (enemy.health <= 20)
+    {
+        //Rnadomly decide to heal or dodge on low health
+        enemyRoll = rand() % 2;
+
+        switch (enemyRoll)
+        {
+            case 0:
+            {
+                enemyChoice = 5;
+
+                break;
+            }
+            case 1:
+            {
+                enemyChoice = 4;
+
+                break;
+            }
+        }
+    }
+    else if (enemy.energy >= 10)
+    {
+        enemyRoll = rand() % 2;
+
+        switch (enemyRoll)
+        {
+            case 0:
+            {
+                enemyChoice = 2;
+
+                break;
+            }
+            case 1:
+            {
+                enemyChoice = 1;
+
+                break;
+            }
+        }
+    }
+    else
+    {
+        enemyChoice = 1;
+    }
+
+    return enemyChoice;
+}
+
+void restoreEnergy(entity &entityToRestore)
+{
+    if (entityToRestore.hasRecharged)
+    {
+        entityToRestore.energy += 16;
+    }
+    else
+    {
+        entityToRestore.energy += 4;
+    }
+}
+
+void clearScreen()
+{
+    std::cout << "\033[2J\033[1;1H";
 }
