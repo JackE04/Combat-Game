@@ -7,23 +7,7 @@
 #include <string>
 
 const char barChar = '#';
-
-const int maxHealth = 100;
-const int maxEnergy = 50;
-const int energyChargeRate = 4; //Amount of energy regained each turn
-
 const int barLength = 10;
-
-const int attackHitChance = 80;
-const int specialAttackHitChance = 50;
-const int dodgeChanceModifier = 30;
-const int healChanceModifier = 20;
-
-const int attackMinDamage = 1;
-const int attackMaxDamage = 11; //10 + 1 for rand function range to process correctly
-
-const int specialAttackMinDamage = 5;
-const int specialAttackMaxDamage = 21; //20 + 1 for rand function range to process correctly
 
 struct entity
 {
@@ -38,6 +22,11 @@ struct entity
 entity player;
 entity enemy;
 
+const int maxHealth = 100;
+const int maxEnergy = 50;
+const int energyRegainRate = 4;
+const int energyRechargeRegainRate = 16;
+
 enum moveNumbers
 {
     Attack = 1,
@@ -47,10 +36,25 @@ enum moveNumbers
     Heal,
 };
 
-moveNumbers moveStates;
+const int attackHitChance = 80;
+const int attackMinDamage = 1;
+const int attackMaxDamage = 10;
+const int attackMinEnergy = 5;
+
+const int specialAttackHitChance = 50;
+const int specialAttackMinDamage = 5;
+const int specialAttackMaxDamage = 20;
+const int specialAttackMinEnergy = 10;
+
+const int dodgeChanceModifier = 30;
+
+const int healChanceModifier = 20;
+const int healMinEnergy = 10;
 
 int moveNumber;
 std::string playerChoice = "0";
+const int lowestPlayerChoice = 1;
+const int highestPlayerChoice = 5;
 
 int enemyChoice;
 int enemyRoll;
@@ -58,6 +62,7 @@ int enemyRoll;
 //Initialise functions
 void printStats(entity entity);
 int playerInput();
+void setCinFail();
 void processMove(int moveNumber, entity &moveUser, entity &target);
 void performAttackMove(int chanceToHit, entity& target, int minDamage, int maxDamage);
 int enemyMoveChoice(entity &enemy);
@@ -92,6 +97,7 @@ int main()
         clearScreen();
         printStats(player);
         printStats(enemy);
+
         std::cout << "Press enter to process enemy move!\n";
         std::cin.clear();
         std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
@@ -103,6 +109,10 @@ int main()
 
         moveNumber = enemyMoveChoice(enemy);
         processMove(moveNumber, enemy, player);
+
+        clearScreen();
+        printStats(player);
+        printStats(enemy);
 
         if (enemy.hasHealed) //Allow a second turn if the enemy has healed
         {
@@ -140,7 +150,7 @@ void printStats(entity entity)
 
     int healthOutput = entity.health / (maxHealth / barLength);
 
-    for (int i = 0; i < 10; i++)
+    for (int i = 0; i < barLength; i++)
     {
         if (i < healthOutput)
         {
@@ -156,7 +166,7 @@ void printStats(entity entity)
 
     int energyOutput = entity.energy / (maxEnergy / barLength);
 
-    for (int i = 0; i < 10; i++)
+    for (int i = 0; i < barLength; i++)
     {
         if (i < energyOutput)
         {
@@ -193,7 +203,7 @@ int playerInput()
 
         if (!std::cin.fail())
         {
-            if (std::stoi(playerChoice) < 1 || std::stoi(playerChoice) > 5)
+            if (std::stoi(playerChoice) < lowestPlayerChoice || std::stoi(playerChoice) > highestPlayerChoice)
                 //Make sure the previous check didn't set the cin fail state, if it didnt then we can safely do stoi on our integer string
             {
                 std::cin.setstate(std::ios_base::failbit);
@@ -202,47 +212,52 @@ int playerInput()
             {
                 switch (std::stoi(playerChoice))
                 {
-                    case 1:
+                    case Attack:
                     {
-                        if (player.energy < 5)
+                        if (player.energy < attackMinEnergy)
                         {
                             std::cout << "Not enough energy! Try again: ";
-                            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-                            std::cin.setstate(std::ios_base::failbit);
+                            setCinFail();
                         }
 
                         break;
                     }
-                    case 2:
+                    case SpecialAttack:
                     {
-                        if (player.energy < 10)
+                        if (player.energy < specialAttackMinEnergy)
                         {
                             std::cout << "Not enough energy! Try again: ";
-                            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-                            std::cin.setstate(std::ios_base::failbit);
+                            setCinFail();
                         }
 
                         break;
                     }
-                    case 5:
+                    case Recharge:
+                    {
+                        if (player.energy == maxEnergy)
+                        {
+                            std::cout << "You cannot recharge over the max energy!\nTry again: ";
+                            setCinFail();
+                        }
+                        
+                        break;
+                    }
+                    case Heal:
                     {
                         if (player.hasHealed)
                         {
                             std::cout << "You cannot heal more than once a turn!\nTry again: ";
-                            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-                            std::cin.setstate(std::ios_base::failbit);
+                            setCinFail();
                         }
-                        else if (player.energy < 11)
+                        else if (player.energy < (healMinEnergy + 1)) //Add 1 to the minimum energy to make sure we have atleast 1 energy to convert to healing after the cost of the move
                         {
                             std::cout << "Not enough energy! You must have atleast 1 energy left to convert to healing.\nTry again: ";
-                            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-                            std::cin.setstate(std::ios_base::failbit);
+                            setCinFail();
                         }
                         else if (player.health == maxHealth)
                         {
                             std::cout << "Health is full, cannot heal!\nTry again: ";
-                            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-                            std::cin.setstate(std::ios_base::failbit);
+                            setCinFail();
                         }
 
                         break;
@@ -266,6 +281,12 @@ int playerInput()
     return std::stoi(playerChoice);
 }
 
+void setCinFail()
+{
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    std::cin.setstate(std::ios_base::failbit);
+}
+
 void processMove(int moveNumber, entity &moveUser, entity &target) 
 //We're passing the entities as pointers so that we can update their values without needing to return the structs
 {
@@ -273,7 +294,7 @@ void processMove(int moveNumber, entity &moveUser, entity &target)
     {
         case Attack:
         {
-            moveUser.energy -= 5;
+            moveUser.energy -= attackMinEnergy;
 
             int chanceToHit = attackHitChance;
 
@@ -283,7 +304,7 @@ void processMove(int moveNumber, entity &moveUser, entity &target)
         }
         case SpecialAttack:
         {
-            moveUser.energy -= 10;
+            moveUser.energy -= specialAttackMinEnergy;
 
             int chanceToHit = specialAttackHitChance;
 
@@ -307,9 +328,9 @@ void processMove(int moveNumber, entity &moveUser, entity &target)
         {
             moveUser.hasHealed = true;
 
-            moveUser.energy -= 10;
-            moveUser.health += moveUser.energy / 2;
-            moveUser.energy /= 2;
+            moveUser.energy -= healMinEnergy;
+            moveUser.health += moveUser.energy / 2; //Convert half of energy to health
+            moveUser.energy /= 2; //Use half of energy to heal
 
             break;
         }
@@ -318,7 +339,7 @@ void processMove(int moveNumber, entity &moveUser, entity &target)
 
 void performAttackMove(int chanceToHit, entity &target, int minDamage, int maxDamage)
 {
-    int hitAttempt = rand() % 101;
+    int hitAttempt = rand() % 101; // 1 in 100
 
     if (target.hasHealed)
     {
@@ -332,53 +353,59 @@ void performAttackMove(int chanceToHit, entity &target, int minDamage, int maxDa
 
     if (hitAttempt <= hitAttempt)
     {
-        int damage = rand() % (maxDamage - minDamage) + minDamage;
+        int damage = rand() % ((maxDamage + 1) - minDamage) + minDamage; // +1 to maxDamage for rand function range to process correctly
         target.health -= damage;
     }
 }
 
 int enemyMoveChoice(entity &enemy)
 {
-    if (enemy.energy <= 10)
+    if (enemy.energy <= specialAttackMinEnergy)
     {
-        enemyChoice = 3; //Set enemy to recharge
+        enemyChoice = Recharge;
     }
-    else if (enemy.health <= 20 && !enemy.hasHealed)
+    else if (enemy.health <= maxHealth / 5)
     {
-        //Rnadomly decide to heal or dodge on low health
-        enemyRoll = rand() % 2;
-
-        switch (enemyRoll)
+        if (!enemy.hasHealed)
         {
-            case 0:
-            {
-                enemyChoice = 5;
+            enemyRoll = rand() % 2; // 1 in 2
 
-                break;
-            }
-            case 1:
+            switch (enemyRoll)
             {
-                enemyChoice = 4;
+                case 0:
+                {
+                    enemyChoice = Heal;
 
-                break;
+                    break;
+                }
+                case 1:
+                {
+                    enemyChoice = Dodge;
+
+                    break;
+                }
             }
         }
+        else
+        {
+            enemyChoice = Dodge;
+        }
     }
-    else if (enemy.energy >= 10)
+    else if (enemy.energy >= specialAttackMinEnergy)
     {
-        enemyRoll = rand() % 2;
+        enemyRoll = rand() % 2; // 1 in 2
 
         switch (enemyRoll)
         {
             case 0:
             {
-                enemyChoice = 2;
+                enemyChoice = SpecialAttack;
 
                 break;
             }
             case 1:
             {
-                enemyChoice = 1;
+                enemyChoice = Attack;
 
                 break;
             }
@@ -386,7 +413,7 @@ int enemyMoveChoice(entity &enemy)
     }
     else
     {
-        enemyChoice = 1;
+        enemyChoice = Attack;
     }
 
     return enemyChoice;
@@ -396,11 +423,16 @@ void restoreEnergy(entity &entityToRestore)
 {
     if (entityToRestore.hasRecharged)
     {
-        entityToRestore.energy += 16;
+        entityToRestore.energy += energyRechargeRegainRate;
     }
     else
     {
-        entityToRestore.energy += 4;
+        entityToRestore.energy += energyRegainRate;
+    }
+
+    if (entityToRestore.energy > maxEnergy)
+    {
+        entityToRestore.energy = maxEnergy;
     }
 }
 
