@@ -25,7 +25,6 @@ entity enemy;
 const int maxHealth = 100;
 const int maxEnergy = 50;
 const int energyRegainRate = 4;
-const int energyRechargeRegainRate = 16;
 
 enum moveNumbers
 {
@@ -316,8 +315,15 @@ std::string processMove(int moveNumber, entity &moveUser, entity &target)
             int chanceToHit = attackHitChance;
 
             int damageResult = performAttackMove(chanceToHit, target, attackMinDamage, attackMaxDamage);
-               
-            moveString = "\n" + moveUser.name + " used Attack dealing " + std::to_string(damageResult) + " damage!\n";
+             
+            if (damageResult == 0)
+            {
+                moveString = "\nAttack Missed!\n\n";
+            }
+            else
+            {
+                moveString = "\n" + moveUser.name + " used Attack dealing " + std::to_string(damageResult) + " damage!\n\n";
+            }
 
             break;
         }
@@ -329,7 +335,14 @@ std::string processMove(int moveNumber, entity &moveUser, entity &target)
 
             int damageResult = performAttackMove(chanceToHit, target, specialAttackMinDamage, specialAttackMaxDamage);
 
-            moveString = "\n" + moveUser.name + " used Special Attack dealing " + std::to_string(damageResult) + " damage!\n";
+            if (damageResult == 0)
+            {
+                moveString = "\nAttack Missed!\n\n";
+            }
+            else
+            {
+                moveString = "\n" + moveUser.name + " used Special Attack dealing " + std::to_string(damageResult) + " damage!\n\n";
+            }
 
             break;
         }
@@ -337,7 +350,7 @@ std::string processMove(int moveNumber, entity &moveUser, entity &target)
         {
             moveUser.hasRecharged = true;
 
-            moveString = "\n" + moveUser.name + " used Recharge!\n";
+            moveString = "\n" + moveUser.name + " used Recharge!\n\n";
 
             break;
         }
@@ -345,7 +358,7 @@ std::string processMove(int moveNumber, entity &moveUser, entity &target)
         {
             moveUser.hasDodged = true;
 
-            moveString = "\n" + moveUser.name + " used Dodge!";
+            moveString = "\n" + moveUser.name + " used Dodge!\n\n";
 
             break;
         }
@@ -360,7 +373,7 @@ std::string processMove(int moveNumber, entity &moveUser, entity &target)
 
             moveUser.energy /= 2; //Used half of energy to heal
 
-            moveString = "\n" + moveUser.name + " used Heal recovering " + std::to_string(healthRegained) + " health costing " + std::to_string(moveUser.energy) + " energy!\n";
+            moveString = "\n" + moveUser.name + " used Heal recovering " + std::to_string(healthRegained) + " health costing " + std::to_string(moveUser.energy) + " energy!\n\n";
 
             break;
         }
@@ -383,12 +396,16 @@ int performAttackMove(int chanceToHit, entity &target, int minDamage, int maxDam
         chanceToHit -= dodgeChanceModifier;
     }
 
-    if (hitAttempt <= hitAttempt)
+    if (hitAttempt <= chanceToHit)
     {
         int damage = rand() % ((maxDamage + 1) - minDamage) + minDamage; // +1 to maxDamage for rand function range to process correctly
         target.health -= damage;
 
         return damage;
+    }
+    else
+    {
+        return 0;
     }
 }
 
@@ -455,17 +472,17 @@ int enemyMoveChoice(entity &enemy)
 
 void restoreEnergy(entity &entityToRestore)
 {
+    int energyToRestore = energyRegainRate;
+
     if (entityToRestore.hasRecharged)
     {
-        entityToRestore.energy += energyRechargeRegainRate;
-    }
-    else
-    {
-        entityToRestore.energy += energyRegainRate;
+        energyToRestore *= energyRegainRate; //Restore energy at 4 times the normal rate when recharging aka same as energyRegainRate
     }
 
-    if (entityToRestore.energy > maxEnergy)
+    if (entityToRestore.hasDodged)
     {
-        entityToRestore.energy = maxEnergy;
+        energyToRestore /= 2; //Dodging halves energy restore rate this turn
     }
+
+    entityToRestore.energy += energyToRestore;
 }
