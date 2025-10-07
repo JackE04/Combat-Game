@@ -52,19 +52,21 @@ const int healChanceModifier = 20;
 const int healMinEnergy = 10;
 
 int moveNumber;
-std::string playerChoice = "0";
+std::string playerChoice = "1";
 const int lowestPlayerChoice = 1;
 const int highestPlayerChoice = 5;
+std::string moveString = "";
 
 int enemyChoice;
 int enemyRoll;
 
 //Initialise functions
+void printRoundProgress(std::string printContinue, std::string printMove);
 void printStats(entity entity);
 int playerInput();
 void setCinFail();
-void processMove(int moveNumber, entity &moveUser, entity &target);
-void performAttackMove(int chanceToHit, entity& target, int minDamage, int maxDamage);
+std::string processMove(int moveNumber, entity &moveUser, entity &target);
+int performAttackMove(int chanceToHit, entity& target, int minDamage, int maxDamage);
 int enemyMoveChoice(entity &enemy);
 void restoreEnergy(entity &entityToRestore);
 void clearScreen();
@@ -80,45 +82,36 @@ int main()
         player.hasDodged = false;
         player.hasHealed = false;
         player.hasRecharged = false;
-        printStats(player);
-        printStats(enemy);
+        
+        printRoundProgress("","");
 
         moveNumber = playerInput();
-        processMove(moveNumber, player, enemy);
+        moveString = processMove(moveNumber, player, enemy);
 
         if (player.hasHealed) //Allow a second turn if the player has healed
         {
-            printStats(player);
-            printStats(enemy);
+            printRoundProgress("", moveString);
+
             int moveNumber = playerInput();
-            processMove(moveNumber, player, enemy);
+            moveString = processMove(moveNumber, player, enemy);
         }
 
-        clearScreen();
-        printStats(player);
-        printStats(enemy);
-
-        std::cout << "Press enter to process enemy move!\n";
-        std::cin.clear();
-        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-        std::ignore = getchar(); //Wait for any user input to continue
+        printRoundProgress("Press enter to process enemy move!\n", moveString);
 
         enemy.hasDodged = false;
         enemy.hasHealed = false;
         enemy.hasRecharged = false;
 
         moveNumber = enemyMoveChoice(enemy);
-        processMove(moveNumber, enemy, player);
-
-        clearScreen();
-        printStats(player);
-        printStats(enemy);
+        moveString = processMove(moveNumber, enemy, player);
 
         if (enemy.hasHealed) //Allow a second turn if the enemy has healed
         {
             moveNumber = enemyMoveChoice(enemy);
-            processMove(moveNumber, enemy, player);
+            moveString = processMove(moveNumber, enemy, player);
         }
+
+        printRoundProgress("Press enter to end round!\n", moveString);
 
         if (enemy.health <= 0)
         {
@@ -137,11 +130,35 @@ int main()
             //Restore energy per round
             restoreEnergy(player);
             restoreEnergy(enemy);
-            clearScreen();
         }
     }
 
     return 0;
+}
+
+void printRoundProgress(std::string printContinue, std::string printMove = "")
+{
+    clearScreen();
+    printStats(player);
+    printStats(enemy);
+
+    if (printMove != "")
+    {
+        std::cout << printMove;
+    }
+
+    if (printContinue != "")
+    {
+        std::cout << printContinue;
+        std::cin.clear();
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        std::ignore = getchar(); //Wait for any user input to continue
+    }
+}
+
+void clearScreen()
+{
+    std::cout << "\033[2J\033[1;1H";
 }
 
 void printStats(entity entity)
@@ -287,7 +304,7 @@ void setCinFail()
     std::cin.setstate(std::ios_base::failbit);
 }
 
-void processMove(int moveNumber, entity &moveUser, entity &target) 
+std::string processMove(int moveNumber, entity &moveUser, entity &target) 
 //We're passing the entities as pointers so that we can update their values without needing to return the structs
 {
     switch (moveNumber)
@@ -298,7 +315,9 @@ void processMove(int moveNumber, entity &moveUser, entity &target)
 
             int chanceToHit = attackHitChance;
 
-            performAttackMove(chanceToHit, target, attackMinDamage, attackMaxDamage);
+            int damageResult = performAttackMove(chanceToHit, target, attackMinDamage, attackMaxDamage);
+               
+            moveString = "\n" + moveUser.name + " used Attack dealing " + std::to_string(damageResult) + " damage!\n";
 
             break;
         }
@@ -308,7 +327,9 @@ void processMove(int moveNumber, entity &moveUser, entity &target)
 
             int chanceToHit = specialAttackHitChance;
 
-            performAttackMove(chanceToHit, target, specialAttackMinDamage, specialAttackMaxDamage);
+            int damageResult = performAttackMove(chanceToHit, target, specialAttackMinDamage, specialAttackMaxDamage);
+
+            moveString = "\n" + moveUser.name + " used Special Attack dealing " + std::to_string(damageResult) + " damage!\n";
 
             break;
         }
@@ -316,11 +337,15 @@ void processMove(int moveNumber, entity &moveUser, entity &target)
         {
             moveUser.hasRecharged = true;
 
+            moveString = "\n" + moveUser.name + " used Recharge!\n";
+
             break;
         }
         case Dodge:
         {
             moveUser.hasDodged = true;
+
+            moveString = "\n" + moveUser.name + " used Dodge!";
 
             break;
         }
@@ -329,15 +354,22 @@ void processMove(int moveNumber, entity &moveUser, entity &target)
             moveUser.hasHealed = true;
 
             moveUser.energy -= healMinEnergy;
-            moveUser.health += moveUser.energy / 2; //Convert half of energy to health
-            moveUser.energy /= 2; //Use half of energy to heal
+            
+            int healthRegained = moveUser.energy / 2; //Convert half of energy to health
+            moveUser.health += healthRegained;
+
+            moveUser.energy /= 2; //Used half of energy to heal
+
+            moveString = "\n" + moveUser.name + " used Heal recovering " + std::to_string(healthRegained) + " health costing " + std::to_string(moveUser.energy) + " energy!\n";
 
             break;
         }
     }
+
+    return moveString;
 }
 
-void performAttackMove(int chanceToHit, entity &target, int minDamage, int maxDamage)
+int performAttackMove(int chanceToHit, entity &target, int minDamage, int maxDamage)
 {
     int hitAttempt = rand() % 101; // 1 in 100
 
@@ -355,6 +387,8 @@ void performAttackMove(int chanceToHit, entity &target, int minDamage, int maxDa
     {
         int damage = rand() % ((maxDamage + 1) - minDamage) + minDamage; // +1 to maxDamage for rand function range to process correctly
         target.health -= damage;
+
+        return damage;
     }
 }
 
@@ -434,9 +468,4 @@ void restoreEnergy(entity &entityToRestore)
     {
         entityToRestore.energy = maxEnergy;
     }
-}
-
-void clearScreen()
-{
-    std::cout << "\033[2J\033[1;1H";
 }
