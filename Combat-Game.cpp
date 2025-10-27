@@ -63,6 +63,7 @@ int enemyRoll;
 
 //Initialise functions
 void printRoundProgress(std::string printContinue, std::string printMove);
+void clearScreen();
 void printStats(entity entity);
 int playerInput();
 void setCinFail();
@@ -70,7 +71,6 @@ std::string processMove(int moveNumber, entity &moveUser, entity &target);
 int performAttackMove(int chanceToHit, entity& target, int minDamage, int maxDamage);
 int enemyMoveChoice(entity &enemy);
 void restoreEnergy(entity &entityToRestore);
-void clearScreen();
 
 int main()
 {
