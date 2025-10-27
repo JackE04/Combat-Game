@@ -6,6 +6,8 @@
 
 #include <string>
 
+#include <Windows.h>
+
 const char barChar = '#';
 const int barLength = 10;
 
@@ -150,14 +152,48 @@ void printRoundProgress(std::string printContinue, std::string printMove = "")
     {
         std::cout << printContinue;
         std::cin.clear();
-        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        std::cin.ignore((std::numeric_limits<std::streamsize>::max)(), '\n');
         std::ignore = getchar(); //Wait for any user input to continue
     }
 }
 
-void clearScreen()
+void clearScreen() //This function has been taken from the windows example console clear page, Example 2: https://learn.microsoft.com/en-us/windows/console/clearing-the-screen 
 {
-    std::cout << "\033[2J\033[1;1H";
+    HANDLE hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
+
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+    SMALL_RECT scrollRect;
+    COORD scrollTarget;
+    CHAR_INFO fill;
+
+    // Get the number of character cells in the current buffer.
+    if (!GetConsoleScreenBufferInfo(hStdout, &csbi))
+    {
+        return;
+    }
+
+    // Scroll the rectangle of the entire buffer.
+    scrollRect.Left = 0;
+    scrollRect.Top = 0;
+    scrollRect.Right = csbi.dwSize.X;
+    scrollRect.Bottom = csbi.dwSize.Y;
+
+    // Scroll it upwards off the top of the buffer with a magnitude of the entire height.
+    scrollTarget.X = 0;
+    scrollTarget.Y = (SHORT)(0 - csbi.dwSize.Y);
+
+    // Fill with empty spaces with the buffer's default text attribute.
+    fill.Char.UnicodeChar = TEXT(' ');
+    fill.Attributes = csbi.wAttributes;
+
+    // Do the scroll
+    ScrollConsoleScreenBuffer(hStdout, &scrollRect, NULL, scrollTarget, &fill);
+
+    // Move the cursor to the top left corner too.
+    csbi.dwCursorPosition.X = 0;
+    csbi.dwCursorPosition.Y = 0;
+
+    SetConsoleCursorPosition(hStdout, csbi.dwCursorPosition);
 }
 
 void printStats(entity entity)
@@ -285,7 +321,7 @@ int playerInput()
         if (!std::cin)
         {
             std::cout << "Invalid input. Try again: ";
-            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            std::cin.ignore((std::numeric_limits<std::streamsize>::max)(), '\n');
             // Clear input buffer, numeric limits allows us to get the size of the buffer to clear the whole thing
         }
         else
@@ -299,7 +335,7 @@ int playerInput()
 
 void setCinFail()
 {
-    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    std::cin.ignore((std::numeric_limits<std::streamsize>::max)(), '\n');
     std::cin.setstate(std::ios_base::failbit);
 }
 
